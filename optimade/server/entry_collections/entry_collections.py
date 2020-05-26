@@ -5,6 +5,7 @@ from optimade.server.mappers import BaseResourceMapper
 from optimade.filterparser import LarkParser
 from optimade.models import EntryResource
 from optimade.server.query_params import EntryListingQueryParams
+from optimade.server.schemas import ENTRY_SCHEMAS
 
 
 class EntryCollection(Collection):  # pylint: disable=inherit-non-class
@@ -17,6 +18,7 @@ class EntryCollection(Collection):  # pylint: disable=inherit-non-class
         self.collection = collection
         self.parser = LarkParser()
         self.resource_cls = resource_cls
+        self.resource_schema = ENTRY_SCHEMAS.get(resource_mapper.ENDPOINT)
         self.resource_mapper = resource_mapper
 
     def __len__(self):
@@ -29,19 +31,7 @@ class EntryCollection(Collection):  # pylint: disable=inherit-non-class
         return self.collection.count(entry) > 0
 
     def get_attribute_fields(self) -> set:
-        schema = self.resource_cls.schema()
-        attributes = schema["properties"]["attributes"]
-        if "allOf" in attributes:
-            allOf = attributes.pop("allOf")
-            for dict_ in allOf:
-                attributes.update(dict_)
-        if "$ref" in attributes:
-            path = attributes["$ref"].split("/")[1:]
-            attributes = schema.copy()
-            while path:
-                next_key = path.pop(0)
-                attributes = attributes[next_key]
-        return set(attributes["properties"].keys())
+        return set(self.resource_schema.keys())
 
     @abstractmethod
     def find(
