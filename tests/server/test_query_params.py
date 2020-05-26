@@ -558,3 +558,63 @@ class FilterTests(SetClient, unittest.TestCase):
         super()._check_error_response(
             request, expected_status, expected_title, expected_detail
         )
+
+
+class SortTests(SetClient, unittest.TestCase):
+
+    server = "regular"
+
+    def _check_response(
+        self, request: str, expected_ids: Union[List, Set], expected_return: int = None
+    ):
+        try:
+            response = self.client.get(request)
+            self.assertEqual(
+                response.status_code, 200, msg=f"Request failed: {response.json()}"
+            )
+            response = response.json()
+            response_ids = [struct["id"] for struct in response["data"]]
+            self.assertEqual(expected_ids, response_ids)
+            if expected_return is not None:
+                self.assertEqual(response["meta"]["data_returned"], expected_return)
+        except Exception as exc:
+            print("Request attempted:")
+            print(f"{self.client.base_url}{request}")
+            raise exc
+
+    def _check_error_response(
+        self,
+        request: str,
+        expected_status: int = None,
+        expected_title: str = None,
+        expected_detail: str = None,
+    ):
+        expected_status = 400 if expected_status is None else expected_status
+        expected_title = "Bad Request" if expected_title is None else expected_title
+        super()._check_error_response(
+            request, expected_status, expected_title, expected_detail
+        )
+
+    def test_sort_and_limit(self):
+        request = "/structures?sort=-nelements&page_limit=1"
+        expected_ids = ["mpf_3819"]
+        self._check_response(request, expected_ids, None)
+
+    def test_sort_order(self):
+        request = "/structures?sort=nelements&page_limit=2"
+        expected_ids = ["mpf_1", "mpf_200"]
+        self._check_response(request, expected_ids, None)
+
+    def test_sort_unknown(self):
+        request = "/structures?sort=crazy_field"
+        self._check_error_response(
+            request, 400, "HTTPException", "Unable to sort on unknown field crazy_field"
+        )
+
+        request = "/structures?sort=crazy_field,crazier_field"
+        self._check_error_response(
+            request,
+            400,
+            "HTTPException",
+            "Unable to sort on unknown fields crazy_field, crazier_field",
+        )
