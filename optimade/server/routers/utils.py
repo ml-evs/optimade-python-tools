@@ -23,10 +23,20 @@ from optimade.server.exceptions import BadRequest
 from optimade.server.query_params import EntryListingQueryParams, SingleEntryQueryParams
 
 
-ENTRY_INFO_SCHEMAS = {
-    "structures": StructureResource.schema,
-    "references": ReferenceResource.schema,
-}
+class EntryInfoSchemas:
+    def __init__(self):
+        self.structures = StructureResource.schema
+        self.references = ReferenceResource.schema
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def keys(self):
+        return {"structures", "references"}
+
+
+ENTRY_INFO_SCHEMAS = EntryInfoSchemas()
+
 
 BASE_URL_PREFIXES = {
     "major": f"/v{__api_version__.split('.')[0]}",
