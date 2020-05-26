@@ -31,7 +31,21 @@ class EntryCollection(Collection):  # pylint: disable=inherit-non-class
         return self.collection.count(entry) > 0
 
     def get_attribute_fields(self) -> set:
-        return set(self.resource_schema.keys())
+        schema = self.resource_cls.schema()
+        attributes = schema["properties"]["attributes"]
+        if "allOf" in attributes:
+            allOf = attributes.pop("allOf")
+            for dict_ in allOf:
+                attributes.update(dict_)
+        if "$ref" in attributes:
+            path = attributes["$ref"].split("/")[1:]
+            attributes = schema.copy()
+            while path:
+                next_key = path.pop(0)
+                attributes = attributes[next_key]
+        return set(attributes["properties"].keys()).union(
+            set(self.resource_schema.keys())
+        )
 
     @abstractmethod
     def find(
