@@ -140,6 +140,7 @@ class MongoCollection(EntryCollection):
             f"_{self.provider_prefix}_{field_name}"
             for field_name in self.provider_fields
         }
+
         cursor_kwargs["fields"] = fields
         cursor_kwargs["projection"] = [
             self.resource_mapper.alias_for(f) for f in fields
@@ -154,6 +155,34 @@ class MongoCollection(EntryCollection):
                     field = field[1:]
                     sort_dir = -1
                 sort_spec.append((field, sort_dir))
+
+            bad_fields = [field for field, _ in sort_spec if field not in fields]
+            if bad_fields:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Unable to sort on unknown field{} {}".format(
+                            "s" if len(bad_fields) > 1 else "", ", ".join(bad_fields)
+                        )
+                    ),
+                )
+
+            unsortable_fields = [
+                field
+                for field, _ in sort_spec
+                if not self.resource_schema.get(field, {}).get("sortable", False)
+            ]
+            if unsortable_fields:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Implementation forbids sorting on field{} {}".format(
+                            "s" if len(bad_fields) > 1 else "",
+                            ", ".join(unsortable_fields),
+                        )
+                    ),
+                )
+
             cursor_kwargs["sort"] = sort_spec
 
         if getattr(params, "page_offset", False):
