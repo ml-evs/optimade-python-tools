@@ -53,7 +53,7 @@ def meta_values(
     **kwargs,
 ) -> ResponseMeta:
     """Helper to initialize the meta values"""
-    from optimade.models import ResponseMetaQuery, Provider, Implementation
+    from optimade.models import ResponseMetaQuery
 
     parse_result = urllib.parse.urlparse(url)
 
@@ -274,8 +274,19 @@ def get_single_entry(
     )
 
 
-def retrieve_queryable_properties(schema: dict, queryable_properties: list) -> dict:
+def retrieve_queryable_properties(
+    schema: dict, queryable_properties: list, entry_provider_fields: list = None
+) -> dict:
+    """ For a given schema dictionary and a list of desired properties,
+    recursively descend into the schema and set the appropriate values
+    for the `description`, `sortable` and `unit` keys, returning the expanded
+    schema dict that includes nested schemas.
+
+    """
     properties = {}
+    if entry_provider_fields is None:
+        entry_provider_fields = []
+
     for name, value in schema["properties"].items():
         if name in queryable_properties:
             if "$ref" in value:
@@ -286,7 +297,9 @@ def retrieve_queryable_properties(schema: dict, queryable_properties: list) -> d
                     sub_schema = sub_schema[next_key]
                 sub_queryable_properties = sub_schema["properties"].keys()
                 properties.update(
-                    retrieve_queryable_properties(sub_schema, sub_queryable_properties)
+                    retrieve_queryable_properties(
+                        sub_schema, sub_queryable_properties, entry_provider_fields
+                    )
                 )
             else:
                 properties[name] = {"description": value.get("description", "")}
@@ -295,6 +308,11 @@ def retrieve_queryable_properties(schema: dict, queryable_properties: list) -> d
                 # All properties are sortable with the MongoDB backend.
                 # While the result for sorting lists may not be as expected, they are still sorted.
                 properties[name]["sortable"] = True
+
+            if name in entry_provider_fields:
+                # Rename fields in schema according to provider field list
+                properties[f"_{CONFIG.provider.prefix}_{name}"] = properties.pop(name)
+
     return properties
 
 
